@@ -1,0 +1,66 @@
+{
+  "name": "pharmacy-backend",
+  "version": "1.0.0",
+  "description": "Backend API for Pharmacy Management System - Built by Soumaya Ben Ahmed",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "test": "echo \"Tests will be added soon\" && exit 0",
+    "lint": "echo \"Linting will be added soon\" && exit 0",
+    "seed": "node src/seeders/index.js",
+    "migrate": "node src/migrations/index.js"
+  },
+  "keywords": [
+    "pharmacy",
+    "management",
+    "nodejs",
+    "express",
+    "mysql",
+    "api",
+    "healthcare",
+    "inventory",
+    "pos"
+  ],
+  "author": {
+    "name": "Soumaya Ben Ahmed",
+    "email": "your-email@domain.com",
+    "url": "https://github.com/soumayabenahmed"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/soumayabenahmed/pharmacy-management-system.git"
+  },
+  "bugs": {
+    "url": "https://github.com/soumayabenahmed/pharmacy-management-system/issues"
+  },
+  "homepage": "https://github.com/soumayabenahmed/pharmacy-management-system#readme",
+  "dependencies": {
+    "bcryptjs": "2.4.3",
+    "cors": "2.8.5",
+    "dotenv": "16.0.3",
+    "express": "4.21.2",
+    "express-validator": "7.0.1",
+    "jsonwebtoken": "9.0.2",
+    "mysql2": "3.11.0",
+    "sequelize": "6.35.2"
+  },
+  "devDependencies": {
+    "nodemon": "3.0.2"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "os": [
+    "win32",
+    "darwin",
+    "linux"
+  ],
+  "private": false,
+  "config": {
+    "port": 5000,
+    "api_version": "v1"
+  }
+}
