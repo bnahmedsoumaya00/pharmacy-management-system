@@ -144,10 +144,201 @@ const validateUserCreation = [
     .withMessage('Role must be admin, pharmacist, or cashier')
 ];
 
+// Medicine validation
+const validateMedicine = [
+  body('name')
+    .trim()
+    .isLength({ min: 2, max: 200 })
+    .withMessage('Medicine name must be between 2 and 200 characters')
+    .notEmpty()
+    .withMessage('Medicine name is required'),
+    
+  body('genericName')
+    .optional()
+    .trim()
+    .isLength({ max: 200 })
+    .withMessage('Generic name cannot exceed 200 characters'),
+    
+  body('brand')
+    .optional()
+    .trim()
+    .isLength({ max: 100 })
+    .withMessage('Brand name cannot exceed 100 characters'),
+    
+  body('categoryId')
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage('Category ID must be a valid integer'),
+    
+  body('supplierId')
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage('Supplier ID must be a valid integer'),
+    
+  body('batchNumber')
+    .optional()
+    .trim()
+    .isLength({ max: 50 })
+    .withMessage('Batch number cannot exceed 50 characters'),
+    
+  body('barcode')
+    .optional()
+    .trim()
+    .isLength({ max: 100 })
+    .withMessage('Barcode cannot exceed 100 characters'),
+    
+  body('description')
+    .optional()
+    .trim(),
+    
+  body('dosage')
+    .optional()
+    .trim()
+    .isLength({ max: 100 })
+    .withMessage('Dosage cannot exceed 100 characters'),
+    
+  body('unit')
+    .isIn(['piece', 'bottle', 'box', 'tube', 'vial', 'pack', 'strip', 'ml', 'mg', 'g'])
+    .withMessage('Unit must be a valid measurement unit'),
+    
+  body('purchasePrice')
+    .isFloat({ min: 0 })
+    .withMessage('Purchase price must be a positive number'),
+    
+  body('sellingPrice')
+    .isFloat({ min: 0 })
+    .withMessage('Selling price must be a positive number'),
+    
+  body('stockQuantity')
+    .optional()
+    .isInt({ min: 0 })
+    .withMessage('Stock quantity must be a non-negative integer'),
+    
+  body('minStockLevel')
+    .optional()
+    .isInt({ min: 0 })
+    .withMessage('Minimum stock level must be a non-negative integer'),
+    
+  body('maxStockLevel')
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage('Maximum stock level must be at least 1'),
+    
+  body('expiryDate')
+    .optional()
+    .isISO8601()
+    .withMessage('Expiry date must be a valid date'),
+    
+  body('manufactureDate')
+    .optional()
+    .isISO8601()
+    .withMessage('Manufacture date must be a valid date'),
+    
+  body('location')
+    .optional()
+    .trim()
+    .isLength({ max: 100 })
+    .withMessage('Location cannot exceed 100 characters'),
+    
+  body('isPrescriptionRequired')
+    .optional()
+    .isBoolean()
+    .withMessage('Prescription required must be true or false')
+];
+
+// Stock adjustment validation
+const validateStockAdjustment = [
+  body('adjustment')
+    .isInt()
+    .withMessage('Adjustment must be an integer (positive or negative)'),
+    
+  body('reason')
+    .trim()
+    .isLength({ min: 3, max: 255 })
+    .withMessage('Reason must be between 3 and 255 characters')
+];
+
+// Customer validation
+const validateCustomer = [
+  body('firstName')
+    .trim()
+    .isLength({ min: 2, max: 50 })
+    .withMessage('First name must be between 2 and 50 characters')
+    .isAlpha()
+    .withMessage('First name can only contain letters'),
+    
+  body('lastName')
+    .trim()
+    .isLength({ min: 2, max: 50 })
+    .withMessage('Last name must be between 2 and 50 characters')
+    .isAlpha()
+    .withMessage('Last name can only contain letters'),
+    
+  body('phone')
+    .optional()
+    .trim()
+    .matches(/^\+?[1-9]\d{1,14}$|^\+216-?\d{8}$/)
+    .withMessage('Please provide a valid phone number (international format or Tunisian format: +216-12345678)'),
+    
+  body('email')
+    .optional()
+    .trim()
+    .isEmail()
+    .withMessage('Please provide a valid email address')
+    .normalizeEmail(),
+    
+  body('dateOfBirth')
+    .optional()
+    .isISO8601()
+    .withMessage('Date of birth must be a valid date')
+    .isBefore(new Date().toISOString().split('T')[0])
+    .withMessage('Date of birth cannot be in the future'),
+    
+  body('gender')
+    .optional()
+    .isIn(['male', 'female', 'other'])
+    .withMessage('Gender must be male, female, or other'),
+    
+  body('address')
+    .optional()
+    .trim()
+    .isLength({ max: 500 })
+    .withMessage('Address cannot exceed 500 characters'),
+    
+  body('city')
+    .optional()
+    .trim()
+    .isLength({ max: 50 })
+    .withMessage('City cannot exceed 50 characters'),
+    
+  body('emergencyContact')
+    .optional()
+    .trim()
+    .isLength({ max: 100 })
+    .withMessage('Emergency contact cannot exceed 100 characters'),
+    
+  body('emergencyPhone')
+    .optional()
+    .trim()
+    .matches(/^\+?[1-9]\d{1,14}$|^\+216-?\d{8}$/)
+    .withMessage('Please provide a valid emergency phone number'),
+    
+  body('allergies')
+    .optional()
+    .trim(),
+    
+  body('medicalConditions')
+    .optional()
+    .trim()
+];
+
 module.exports = {
   validateRegister,
   validateLogin,
   validateProfileUpdate,
   validatePasswordChange,
-  validateUserCreation
+  validateUserCreation,
+  validateMedicine,
+  validateStockAdjustment,
+  validateCustomer
 };

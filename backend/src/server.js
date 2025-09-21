@@ -1,7 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const { sequelize, testConnection } = require('./config/database');
-const User = require('./models/User');
+// Import models with relationships
+const { User, Medicine, Category, Customer, Sale, SaleItem } = require('./models/index');
 require('dotenv').config();
 
 const app = express();
@@ -19,8 +20,6 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 if (process.env.NODE_ENV === 'development') {
   app.use((req, res, next) => {
     console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
-    console.log('Request headers:', req.headers);
-    console.log('Request body:', req.body);
     next();
   });
 }
@@ -112,7 +111,41 @@ app.get('/api/test-db', async (req, res) => {
 
 // API Routes
 const authRoutes = require('./routes/authRoutes');
+const medicineRoutes = require('./routes/medicineRoutes');
+const customerRoutes = require('./routes/customerRoutes');
+
 app.use('/api/auth', authRoutes);
+app.use('/api/medicines', medicineRoutes);
+app.use('/api/customers', customerRoutes);
+// Temporary: Seed some categories for testing
+app.post('/api/seed-categories', async (req, res) => {
+  try {
+    const { Category } = require('./models/index');
+    
+    const categories = [
+      { name: 'Pain Relief', description: 'Analgesics and pain management medications' },
+      { name: 'Antibiotics', description: 'Anti-bacterial medications' },
+      { name: 'Vitamins', description: 'Vitamin supplements and nutrition' },
+      { name: 'First Aid', description: 'Bandages, antiseptics, and first aid supplies' }
+    ];
+
+    const createdCategories = await Category.bulkCreate(categories, {
+      ignoreDuplicates: true
+    });
+
+    res.json({
+      success: true,
+      message: 'Categories seeded successfully',
+      data: { categories: createdCategories }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to seed categories',
+      error: error.message
+    });
+  }
+});
 
 // Get user count endpoint
 app.get('/api/users/count', async (req, res) => {
