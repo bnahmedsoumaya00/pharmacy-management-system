@@ -39,8 +39,8 @@ const validateRegister = [
   body('phone')
     .optional()
     .trim()
-    .matches(/^\+?[1-9]\d{1,14}$/)
-    .withMessage('Please provide a valid phone number'),
+    .matches(/^\+?[1-9]\d{1,14}$|^\+216-?\d{8}$/)
+    .withMessage('Please provide a valid phone number (international format or Tunisian format: +216-12345678)'),
     
   body('role')
     .optional()
@@ -73,8 +73,8 @@ const validateProfileUpdate = [
   body('phone')
     .optional()
     .trim()
-    .matches(/^\+?[1-9]\d{1,14}$/)
-    .withMessage('Please provide a valid phone number'),
+    .matches(/^\+?[1-9]\d{1,14}$|^\+216-?\d{8}$/)
+    .withMessage('Please provide a valid phone number (international format or Tunisian format: +216-12345678)'),
     
   body('email')
     .optional()
@@ -133,11 +133,11 @@ const validateUserCreation = [
     .matches(/^[a-zA-Z\s\u00C0-\u017F]+$/)
     .withMessage('Full name can only contain letters and spaces'),
     
-  body('phone')
+    body('phone')
     .optional()
     .trim()
-    .matches(/^\+?[1-9]\d{1,14}$/)
-    .withMessage('Please provide a valid phone number'),
+    .matches(/^\+?[1-9]\d{1,14}$|^\+216-?\d{8}$/)
+    .withMessage('Please provide a valid phone number (international format or Tunisian format: +216-12345678)'),
     
   body('role')
     .isIn(['admin', 'pharmacist', 'cashier'])
