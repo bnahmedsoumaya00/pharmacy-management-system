@@ -117,6 +117,7 @@ const customerRoutes = require('./routes/customerRoutes');
 app.use('/api/auth', authRoutes);
 app.use('/api/medicines', medicineRoutes);
 app.use('/api/customers', customerRoutes);
+
 // Temporary: Seed some categories for testing
 app.post('/api/seed-categories', async (req, res) => {
   try {

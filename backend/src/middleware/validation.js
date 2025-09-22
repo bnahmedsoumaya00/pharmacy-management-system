@@ -332,6 +332,63 @@ const validateCustomer = [
     .trim()
 ];
 
+// Sales validation
+const validateSale = [
+  body('customerId')
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage('Customer ID must be a valid integer'),
+    
+  body('items')
+    .isArray({ min: 1 })
+    .withMessage('Sale must contain at least one item'),
+    
+  body('items.*.medicineId')
+    .isInt({ min: 1 })
+    .withMessage('Medicine ID must be a valid integer'),
+    
+  body('items.*.quantity')
+    .isInt({ min: 1 })
+    .withMessage('Quantity must be at least 1'),
+    
+  body('items.*.unitPrice')
+    .isFloat({ min: 0 })
+    .withMessage('Unit price must be a positive number'),
+    
+  body('items.*.discount')
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage('Discount must be a positive number'),
+    
+  body('paymentMethod')
+    .isIn(['cash', 'card', 'insurance', 'credit'])
+    .withMessage('Payment method must be cash, card, insurance, or credit'),
+    
+  body('discountAmount')
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage('Discount amount must be a positive number'),
+    
+  body('notes')
+    .optional()
+    .trim()
+    .isLength({ max: 500 })
+    .withMessage('Notes cannot exceed 500 characters')
+];
+
+// Refund validation
+const validateRefund = [
+  body('reason')
+    .trim()
+    .isLength({ min: 10, max: 500 })
+    .withMessage('Refund reason must be between 10 and 500 characters'),
+    
+  body('amount')
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage('Refund amount must be a positive number')
+];
+
 module.exports = {
   validateRegister,
   validateLogin,
@@ -340,5 +397,7 @@ module.exports = {
   validateUserCreation,
   validateMedicine,
   validateStockAdjustment,
-  validateCustomer
+  validateCustomer,
+  validateSale,
+  validateRefund
 };
