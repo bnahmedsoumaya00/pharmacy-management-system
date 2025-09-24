@@ -5,6 +5,7 @@ const Category = require('./Category');
 const Customer = require('./Customer');
 const Sale = require('./Sale');
 const SaleItem = require('./SaleItem');
+const Supplier = require('./Supplier');
 
 // Define associations after all models are loaded
 const defineAssociations = () => {
@@ -17,6 +18,17 @@ const defineAssociations = () => {
   Medicine.belongsTo(Category, {
     foreignKey: 'categoryId',
     as: 'category'
+  });
+
+  // Supplier - Medicine relationship
+  Supplier.hasMany(Medicine, {
+    foreignKey: 'supplierId',
+    as: 'medicines'
+  });
+
+  Medicine.belongsTo(Supplier, {
+    foreignKey: 'supplierId',
+    as: 'supplier'
   });
 
   // Customer - Sales relationship
@@ -73,5 +85,6 @@ module.exports = {
   Category,
   Customer,
   Sale,
-  SaleItem
+  SaleItem,
+  Supplier
 };
