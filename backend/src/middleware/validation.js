@@ -1,3 +1,4 @@
+const { body } = require('express-validator');
 const ValidatorFactory = require('../validators/ValidatorFactory');
 
 /**
@@ -15,7 +16,20 @@ const validateUserCreation = ValidatorFactory.getValidator('auth', 'userCreation
 // Medicine validators
 const validateMedicine = ValidatorFactory.getValidator('medicine', 'create');
 const validateMedicineUpdate = ValidatorFactory.getValidator('medicine', 'update');
-const validateStockAdjustment = ValidatorFactory.getValidator('medicine', 'stockAdjustment');
+const validateStockAdjustment = [
+  body('quantity') // ✅ Changed from 'adjustment' to 'quantity'
+    .isInt({ allow_negative: true })
+    .withMessage('Quantity must be an integer (positive or negative)')
+    .notEmpty()
+    .withMessage('Quantity is required'),
+  
+  body('reason')
+    .optional()
+    .isString()
+    .trim()
+    .isLength({ min: 1, max: 200 })
+    .withMessage('Reason must be between 1 and 200 characters')
+];
 const validateMedicineSearch = ValidatorFactory.getValidator('medicine', 'search');
 const validateMedicineBulkImport = ValidatorFactory.getValidator('medicine', 'bulkImport');
 
@@ -35,6 +49,21 @@ const validateSalesFilter = ValidatorFactory.getValidator('sales', 'filter');
 const validateCategory = ValidatorFactory.getValidator('category', 'create');
 const validateCategoryUpdate = ValidatorFactory.getValidator('category', 'update');
 const validateCategorySearch = ValidatorFactory.getValidator('category', 'search');
+
+// New validators
+const validateBulkStatusUpdate = [
+  body('medicineIds')
+    .isArray({ min: 1 })
+    .withMessage('medicineIds must be a non-empty array'),
+  
+  body('medicineIds.*')
+    .isInt({ min: 1 })
+    .withMessage('Each medicine ID must be a positive integer'),
+  
+  body('isActive')
+    .isBoolean()
+    .withMessage('isActive must be a boolean value')
+];
 
 module.exports = {
   // Backward compatibility exports
@@ -61,5 +90,8 @@ module.exports = {
   validateCategorySearch,
   
   // New Factory Pattern exports
-  ValidatorFactory
+  ValidatorFactory,
+
+  // New validators
+  validateBulkStatusUpdate
 };

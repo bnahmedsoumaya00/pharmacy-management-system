@@ -13,6 +13,8 @@ const {
 
 const { validateCustomer } = require('../middleware/validation');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
+const MedicineService = require('../services/MedicineService');
+const medicineService = new MedicineService();
 
 // Apply authentication to all routes
 router.use(authenticateToken);

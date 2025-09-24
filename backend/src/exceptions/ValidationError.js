@@ -29,4 +29,6 @@ class ValidationError extends Error {
   }
 }
 
+// Export as both default and named export to support different import styles
 module.exports = ValidationError;
+module.exports.ValidationError = ValidationError;

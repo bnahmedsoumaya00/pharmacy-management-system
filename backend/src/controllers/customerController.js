@@ -1,468 +1,316 @@
-const { Customer, Sale, SaleItem } = require('../models/index');
+const CustomerService = require('../services/CustomerService');
 const { validationResult } = require('express-validator');
-const { Op } = require('sequelize');
 
-// Get all customers with pagination and filtering
-const getAllCustomers = async (req, res) => {
-  try {
-    const { 
-      page = 1, 
-      limit = 20, 
-      search, 
-      city,
-      gender,
-      activeOnly = 'true',
-      sortBy = 'firstName',
-      sortOrder = 'ASC'
-    } = req.query;
+class CustomerController {
+  constructor() {
+    this.customerService = new CustomerService();
+  }
 
-    const offset = (page - 1) * parseInt(limit);
-    const whereClause = {};
+  // Get all customers
+  getAllCustomers = async (req, res) => {
+    try {
+      const { page = 1, limit = 20, search, city, gender } = req.query;
+      const offset = (page - 1) * limit;
 
-    // Active customers filter
-    if (activeOnly === 'true') {
-      whereClause.isActive = true;
-    }
+      let customers;
 
-    // Search functionality
-    if (search) {
-      whereClause[Op.or] = [
-        { firstName: { [Op.like]: `%${search}%` } },
-        { lastName: { [Op.like]: `%${search}%` } },
-        { customerCode: { [Op.like]: `%${search}%` } },
-        { phone: { [Op.like]: `%${search}%` } },
-        { email: { [Op.like]: `%${search}%` } }
-      ];
-    }
-
-    // City filter
-    if (city) {
-      whereClause.city = { [Op.like]: `%${city}%` };
-    }
-
-    // Gender filter
-    if (gender && ['male', 'female', 'other'].includes(gender)) {
-      whereClause.gender = gender;
-    }
-
-    const { count, rows: customers } = await Customer.findAndCountAll({
-      where: whereClause,
-      limit: parseInt(limit),
-      offset: offset,
-      order: [[sortBy, sortOrder.toUpperCase()]],
-      attributes: {
-        exclude: ['updatedAt'] // Exclude sensitive or unnecessary fields
+      if (search) {
+        customers = await this.customerService.searchCustomers(search);
+      } else {
+        const filters = { limit: parseInt(limit), offset: parseInt(offset) };
+        if (city) filters.city = city;
+        if (gender) filters.gender = gender;
+        
+        customers = await this.customerService.advancedSearch(filters);
       }
-    });
 
-    // Add computed fields
-    const customersWithExtras = customers.map(customer => {
-      const customerData = customer.toJSON();
-      return {
-        ...customerData,
-        fullName: customer.getFullName(),
-        age: customer.getAge(),
-        loyaltyTier: customerData.totalPurchases >= 1000 ? 'Gold' : 
-                     customerData.totalPurchases >= 500 ? 'Silver' : 'Bronze'
-      };
-    });
-
-    const totalPages = Math.ceil(count / parseInt(limit));
-
-    res.json({
-      success: true,
-      message: 'Customers retrieved successfully',
-      data: {
-        customers: customersWithExtras,
+      res.json({
+        success: true,
+        data: customers,
         pagination: {
-          currentPage: parseInt(page),
-          totalPages,
-          totalItems: count,
-          itemsPerPage: parseInt(limit),
-          hasNextPage: page < totalPages,
-          hasPrevPage: page > 1
-        }
-      }
-    });
-
-  } catch (error) {
-    console.error('Get customers error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to retrieve customers',
-      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-    });
-  }
-};
-
-// Get single customer by ID
-const getCustomerById = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const customer = await Customer.findOne({
-      where: { id, isActive: true }
-    });
-
-    if (!customer) {
-      return res.status(404).json({
-        success: false,
-        message: 'Customer not found',
-        code: 'CUSTOMER_NOT_FOUND'
-      });
-    }
-
-    const customerData = customer.toJSON();
-    const customerWithExtras = {
-      ...customerData,
-      fullName: customer.getFullName(),
-      age: customer.getAge(),
-      loyaltyTier: customerData.totalPurchases >= 1000 ? 'Gold' : 
-                   customerData.totalPurchases >= 500 ? 'Silver' : 'Bronze'
-    };
-
-    res.json({
-      success: true,
-      message: 'Customer retrieved successfully',
-      data: { customer: customerWithExtras }
-    });
-
-  } catch (error) {
-    console.error('Get customer by ID error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to retrieve customer',
-      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-    });
-  }
-};
-
-// Create new customer
-const createCustomer = async (req, res) => {
-  try {
-    // Check for validation errors
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors.array()
-      });
-    }
-
-    const customerData = req.body;
-
-    // Check if phone or email already exists (if provided)
-    const whereConditions = [];
-    if (customerData.phone) {
-      whereConditions.push({ phone: customerData.phone });
-    }
-    if (customerData.email) {
-      whereConditions.push({ email: customerData.email });
-    }
-
-    if (whereConditions.length > 0) {
-      const existingCustomer = await Customer.findOne({
-        where: {
-          [Op.or]: whereConditions,
-          isActive: true
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total: customers.length
         }
       });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch customers',
+        error: error.message
+      });
+    }
+  };
 
-      if (existingCustomer) {
-        const duplicateField = existingCustomer.phone === customerData.phone ? 'phone' : 'email';
-        return res.status(409).json({
+  // Get customer by ID
+  getCustomerById = async (req, res) => {
+    try {
+      const { id } = req.params;
+      const customer = await this.customerService.getCustomerById(id);
+
+      if (!customer) {
+        return res.status(404).json({
           success: false,
-          message: `Customer with this ${duplicateField} already exists`,
-          code: 'CUSTOMER_EXISTS'
+          message: 'Customer not found'
         });
       }
-    }
 
-    const newCustomer = await Customer.create(customerData);
-
-    const customerWithExtras = {
-      ...newCustomer.toJSON(),
-      fullName: newCustomer.getFullName(),
-      age: newCustomer.getAge(),
-      loyaltyTier: 'Bronze'
-    };
-
-    res.status(201).json({
-      success: true,
-      message: 'Customer created successfully',
-      data: { customer: customerWithExtras }
-    });
-
-  } catch (error) {
-    console.error('Create customer error:', error);
-
-    // Handle Sequelize validation errors
-    if (error.name === 'SequelizeValidationError') {
-      const validationErrors = error.errors.map(err => ({
-        field: err.path,
-        message: err.message,
-        value: err.value
-      }));
-
-      return res.status(400).json({
+      res.json({
+        success: true,
+        data: customer
+      });
+    } catch (error) {
+      res.status(500).json({
         success: false,
-        message: 'Validation failed',
-        errors: validationErrors
+        message: 'Failed to fetch customer',
+        error: error.message
       });
     }
+  };
 
-    res.status(500).json({
-      success: false,
-      message: 'Failed to create customer',
-      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-    });
-  }
-};
-
-// Update customer
-const updateCustomer = async (req, res) => {
-  try {
-    // Check for validation errors
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors.array()
-      });
-    }
-
-    const { id } = req.params;
-    const updateData = req.body;
-
-    // Find existing customer
-    const customer = await Customer.findOne({
-      where: { id, isActive: true }
-    });
-
-    if (!customer) {
-      return res.status(404).json({
-        success: false,
-        message: 'Customer not found',
-        code: 'CUSTOMER_NOT_FOUND'
-      });
-    }
-
-    // Check phone/email uniqueness (if being updated)
-    const whereConditions = [];
-    if (updateData.phone && updateData.phone !== customer.phone) {
-      whereConditions.push({ phone: updateData.phone });
-    }
-    if (updateData.email && updateData.email !== customer.email) {
-      whereConditions.push({ email: updateData.email });
-    }
-
-    if (whereConditions.length > 0) {
-      const existingCustomer = await Customer.findOne({
-        where: {
-          [Op.or]: whereConditions,
-          id: { [Op.ne]: id },
-          isActive: true
-        }
-      });
-
-      if (existingCustomer) {
-        const duplicateField = existingCustomer.phone === updateData.phone ? 'phone' : 'email';
-        return res.status(409).json({
+  // Create new customer
+  createCustomer = async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
           success: false,
-          message: `Customer with this ${duplicateField} already exists`,
-          code: 'CUSTOMER_EXISTS'
+          message: 'Validation failed',
+          errors: errors.array()
         });
       }
-    }
 
-    await customer.update(updateData);
+      const customer = await this.customerService.createCustomer(req.body);
 
-    const updatedCustomerWithExtras = {
-      ...customer.toJSON(),
-      fullName: customer.getFullName(),
-      age: customer.getAge(),
-      loyaltyTier: customer.totalPurchases >= 1000 ? 'Gold' : 
-                   customer.totalPurchases >= 500 ? 'Silver' : 'Bronze'
-    };
-
-    res.json({
-      success: true,
-      message: 'Customer updated successfully',
-      data: { customer: updatedCustomerWithExtras }
-    });
-
-  } catch (error) {
-    console.error('Update customer error:', error);
-
-    if (error.name === 'SequelizeValidationError') {
-      const validationErrors = error.errors.map(err => ({
-        field: err.path,
-        message: err.message,
-        value: err.value
-      }));
-
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: validationErrors
+      res.status(201).json({
+        success: true,
+        message: 'Customer created successfully',
+        data: customer
       });
-    }
-
-    res.status(500).json({
-      success: false,
-      message: 'Failed to update customer',
-      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-    });
-  }
-};
-
-// Soft delete customer
-const deleteCustomer = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const customer = await Customer.findOne({
-      where: { id, isActive: true }
-    });
-
-    if (!customer) {
-      return res.status(404).json({
-        success: false,
-        message: 'Customer not found',
-        code: 'CUSTOMER_NOT_FOUND'
-      });
-    }
-
-    await customer.update({ isActive: false });
-
-    res.json({
-      success: true,
-      message: 'Customer deleted successfully'
-    });
-
-  } catch (error) {
-    console.error('Delete customer error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to delete customer',
-      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-    });
-  }
-};
-
-// Get customer purchase history
-const getCustomerHistory = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { page = 1, limit = 10 } = req.query;
-    const offset = (page - 1) * parseInt(limit);
-
-    const customer = await Customer.findOne({
-      where: { id, isActive: true }
-    });
-
-    if (!customer) {
-      return res.status(404).json({
-        success: false,
-        message: 'Customer not found',
-        code: 'CUSTOMER_NOT_FOUND'
-      });
-    }
-
-    const { count, rows: sales } = await Sale.findAndCountAll({
-      where: { customerId: id },
-      include: [{
-        model: SaleItem,
-        as: 'items',
-        attributes: ['medicineId', 'quantity', 'unitPrice', 'totalPrice']
-      }],
-      limit: parseInt(limit),
-      offset: offset,
-      order: [['saleDate', 'DESC']]
-    });
-
-    const totalPages = Math.ceil(count / parseInt(limit));
-
-    res.json({
-      success: true,
-      message: 'Customer purchase history retrieved successfully',
-      data: {
-        customer: {
-          id: customer.id,
-          fullName: customer.getFullName(),
-          customerCode: customer.customerCode,
-          totalPurchases: customer.totalPurchases,
-          loyaltyPoints: customer.loyaltyPoints
-        },
-        sales,
-        pagination: {
-          currentPage: parseInt(page),
-          totalPages,
-          totalItems: count,
-          itemsPerPage: parseInt(limit)
-        }
+    } catch (error) {
+      if (error.code === 'PHONE_EXISTS' || error.code === 'EMAIL_EXISTS') {
+        return res.status(400).json({
+          success: false,
+          message: error.message
+        });
       }
-    });
 
-  } catch (error) {
-    console.error('Get customer history error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to retrieve customer history',
-      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-    });
-  }
-};
+      res.status(500).json({
+        success: false,
+        message: 'Failed to create customer',
+        error: error.message
+      });
+    }
+  };
 
-// Get customer statistics
-const getCustomerStats = async (req, res) => {
-  try {
-    const stats = await Customer.getCustomerStats();
-
-    // Get additional statistics
-    const topCustomers = await Customer.getTopCustomers(5);
-    const birthdayCustomers = await Customer.getBirthdayCustomers(7);
-
-    res.json({
-      success: true,
-      message: 'Customer statistics retrieved successfully',
-      data: {
-        stats,
-        topCustomers: topCustomers.map(customer => ({
-          id: customer.id,
-          fullName: customer.getFullName(),
-          customerCode: customer.customerCode,
-          totalPurchases: customer.totalPurchases,
-          loyaltyPoints: customer.loyaltyPoints
-        })),
-        upcomingBirthdays: birthdayCustomers.map(customer => ({
-          id: customer.id,
-          fullName: customer.getFullName(),
-          customerCode: customer.customerCode,
-          dateOfBirth: customer.dateOfBirth,
-          age: customer.getAge()
-        }))
+  // Update customer
+  updateCustomer = async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation failed',
+          errors: errors.array()
+        });
       }
-    });
 
-  } catch (error) {
-    console.error('Get customer stats error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to retrieve customer statistics',
-      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-    });
-  }
-};
+      const { id } = req.params;
+      const customer = await this.customerService.updateCustomer(id, req.body);
 
-module.exports = {
-  getAllCustomers,
-  getCustomerById,
-  createCustomer,
-  updateCustomer,
-  deleteCustomer,
-  getCustomerHistory,
-  getCustomerStats
-};
+      if (!customer) {
+        return res.status(404).json({
+          success: false,
+          message: 'Customer not found'
+        });
+      }
+
+      res.json({
+        success: true,
+        message: 'Customer updated successfully',
+        data: customer
+      });
+    } catch (error) {
+      if (error.code === 'PHONE_EXISTS' || error.code === 'EMAIL_EXISTS') {
+        return res.status(400).json({
+          success: false,
+          message: error.message
+        });
+      }
+
+      res.status(500).json({
+        success: false,
+        message: 'Failed to update customer',
+        error: error.message
+      });
+    }
+  };
+
+  // Delete customer
+  deleteCustomer = async (req, res) => {
+    try {
+      const { id } = req.params;
+      const deleted = await this.customerService.deleteCustomer(id);
+
+      if (!deleted) {
+        return res.status(404).json({
+          success: false,
+          message: 'Customer not found'
+        });
+      }
+
+      res.json({
+        success: true,
+        message: 'Customer deleted successfully'
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: 'Failed to delete customer',
+        error: error.message
+      });
+    }
+  };
+
+  // Get customer statistics
+  getCustomerStats = async (req, res) => {
+    try {
+      const stats = await this.customerService.getCustomerStats();
+
+      res.json({
+        success: true,
+        data: stats
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch customer statistics',
+        error: error.message
+      });
+    }
+  };
+
+  // Get customer with purchase history
+  getCustomerHistory = async (req, res) => {
+    try {
+      const { id } = req.params;
+      const customer = await this.customerService.getCustomerWithHistory(id);
+
+      if (!customer) {
+        return res.status(404).json({
+          success: false,
+          message: 'Customer not found'
+        });
+      }
+
+      res.json({
+        success: true,
+        data: customer
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch customer history',
+        error: error.message
+      });
+    }
+  };
+
+  // Search customers
+  searchCustomers = async (req, res) => {
+    try {
+      const { q: searchTerm } = req.query;
+
+      if (!searchTerm) {
+        return res.status(400).json({
+          success: false,
+          message: 'Search term is required'
+        });
+      }
+
+      const customers = await this.customerService.searchCustomers(searchTerm);
+
+      res.json({
+        success: true,
+        data: customers,
+        count: customers.length
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: 'Failed to search customers',
+        error: error.message
+      });
+    }
+  };
+
+  // Get top customers
+  getTopCustomers = async (req, res) => {
+    try {
+      const { limit = 10 } = req.query;
+      const customers = await this.customerService.getTopCustomers(parseInt(limit));
+
+      res.json({
+        success: true,
+        data: customers
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch top customers',
+        error: error.message
+      });
+    }
+  };
+
+  // Get birthday customers
+  getBirthdayCustomers = async (req, res) => {
+    try {
+      const { days = 7 } = req.query;
+      const customers = await this.customerService.getBirthdayCustomers(parseInt(days));
+
+      res.json({
+        success: true,
+        data: customers,
+        count: customers.length
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch birthday customers',
+        error: error.message
+      });
+    }
+  };
+
+  // Update loyalty points
+  updateLoyaltyPoints = async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { points } = req.body;
+
+      if (typeof points !== 'number') {
+        return res.status(400).json({
+          success: false,
+          message: 'Points must be a number'
+        });
+      }
+
+      const customer = await this.customerService.updateLoyaltyPoints(id, points);
+
+      res.json({
+        success: true,
+        message: 'Loyalty points updated successfully',
+        data: customer
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: 'Failed to update loyalty points',
+        error: error.message
+      });
+    }
+  };
+}
+
+module.exports = new CustomerController();
