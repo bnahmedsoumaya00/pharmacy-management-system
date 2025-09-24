@@ -113,10 +113,14 @@ app.get('/api/test-db', async (req, res) => {
 const authRoutes = require('./routes/authRoutes');
 const medicineRoutes = require('./routes/medicineRoutes');
 const customerRoutes = require('./routes/customerRoutes');
+const salesRoutes = require('./routes/salesRoutes');
+const categoryRoutes = require('./routes/categoryRoutes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/medicines', medicineRoutes);
 app.use('/api/customers', customerRoutes);
+app.use('/api/sales', salesRoutes);
+app.use('/api/categories', categoryRoutes);
 
 // Temporary: Seed some categories for testing
 app.post('/api/seed-categories', async (req, res) => {
