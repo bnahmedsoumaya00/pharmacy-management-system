@@ -99,21 +99,17 @@ app.get('/api/test-db', async (req, res) => {
 const authRoutes = require('./routes/authRoutes');
 const medicineRoutes = require('./routes/medicineRoutes');
 const customerRoutes = require('./routes/customerRoutes');
-// const salesRoutes = require('./routes/salesRoutes');           // ❌ DISABLED - Causing errors
-// const categoryRoutes = require('./routes/categoryRoutes');     // ❌ DISABLED - May not exist
-// const supplierRoutes = require('./routes/supplierRoutes');     // ❌ DISABLED - May not exist  
-// const dashboardRoutes = require('./routes/dashboardRoutes');   // ❌ DISABLED - May not exist
+const salesRoutes = require('./routes/salesRoutes');
+const categoryRoutes = require('./routes/categoryRoutes');
+const supplierRoutes = require('./routes/supplierRoutes'); // UNCOMMENT THIS LINE
 
-// Apply auth rate limiting to auth routes
-app.use('/api/auth', authRoutes);
-
-// Mount working routes only
+// Routes
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/medicines', medicineRoutes);
 app.use('/api/customers', customerRoutes);
-// app.use('/api/sales', salesRoutes);           // ❌ DISABLED
-// app.use('/api/categories', categoryRoutes);   // ❌ DISABLED
-// app.use('/api/suppliers', supplierRoutes);    // ❌ DISABLED
-// app.use('/api/dashboard', dashboardRoutes);   // ❌ DISABLED
+app.use('/api/sales', salesRoutes);
+app.use('/api/categories', categoryRoutes);       // ✅ Working
+app.use('/api/suppliers', supplierRoutes);       // 🚀 ADD THIS LINE
 
 // Global error handler
 app.use((error, req, res, next) => {

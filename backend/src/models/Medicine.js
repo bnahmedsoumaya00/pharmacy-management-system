@@ -1,4 +1,4 @@
-const { DataTypes } = require('sequelize');
+const { DataTypes, Op } = require('sequelize'); // ADD Op IMPORT HERE
 const { sequelize } = require('../config/database');
 
 const Medicine = sequelize.define('Medicine', {
@@ -238,7 +238,7 @@ const Medicine = sequelize.define('Medicine', {
       fields: ['barcode'],
       where: {
         barcode: {
-          [sequelize.Sequelize.Op.ne]: null
+          [Op.ne]: null // FIXED: Use Op.ne instead of sequelize.Sequelize.Op.ne
         }
       }
     },
@@ -257,7 +257,7 @@ const Medicine = sequelize.define('Medicine', {
   ]
 });
 
-// Instance methods
+// Instance methods (no changes needed)
 Medicine.prototype.isLowStock = function() {
   return this.stockQuantity <= this.minStockLevel;
 };
@@ -284,12 +284,12 @@ Medicine.prototype.getTotalValue = function() {
   return this.stockQuantity * this.sellingPrice;
 };
 
-// Static methods
+// FIXED Static methods
 Medicine.findLowStock = async function() {
   return await Medicine.findAll({
     where: {
-      [sequelize.Sequelize.Op.and]: [
-        sequelize.Sequelize.literal('stock_quantity <= min_stock_level'),
+      [Op.and]: [ // FIXED: Use Op.and
+        sequelize.literal('stock_quantity <= min_stock_level'),
         { isActive: true }
       ]
     },
@@ -304,8 +304,8 @@ Medicine.findExpiring = async function(days = 30) {
   return await Medicine.findAll({
     where: {
       expiryDate: {
-        [sequelize.Sequelize.Op.lte]: warningDate,
-        [sequelize.Sequelize.Op.gte]: new Date()
+        [Op.lte]: warningDate, // FIXED: Use Op.lte
+        [Op.gte]: new Date()   // FIXED: Use Op.gte
       },
       isActive: true
     },
@@ -317,7 +317,7 @@ Medicine.findExpired = async function() {
   return await Medicine.findAll({
     where: {
       expiryDate: {
-        [sequelize.Sequelize.Op.lt]: new Date()
+        [Op.lt]: new Date() // FIXED: Use Op.lt
       },
       isActive: true
     },
@@ -328,22 +328,22 @@ Medicine.findExpired = async function() {
 Medicine.searchByName = async function(searchTerm) {
   return await Medicine.findAll({
     where: {
-      [sequelize.Sequelize.Op.and]: [
+      [Op.and]: [ // FIXED: Use Op.and
         {
-          [sequelize.Sequelize.Op.or]: [
+          [Op.or]: [ // FIXED: Use Op.or
             {
               name: {
-                [sequelize.Sequelize.Op.like]: `%${searchTerm}%`
+                [Op.like]: `%${searchTerm}%` // FIXED: Use Op.like
               }
             },
             {
               genericName: {
-                [sequelize.Sequelize.Op.like]: `%${searchTerm}%`
+                [Op.like]: `%${searchTerm}%` // FIXED: Use Op.like
               }
             },
             {
               brand: {
-                [sequelize.Sequelize.Op.like]: `%${searchTerm}%`
+                [Op.like]: `%${searchTerm}%` // FIXED: Use Op.like
               }
             }
           ]
@@ -358,19 +358,19 @@ Medicine.searchByName = async function(searchTerm) {
 Medicine.getInventoryStats = async function() {
   const stats = await Medicine.findAll({
     attributes: [
-      [sequelize.Sequelize.fn('COUNT', sequelize.Sequelize.col('id')), 'totalMedicines'],
-      [sequelize.Sequelize.fn('SUM', sequelize.Sequelize.col('stock_quantity')), 'totalStock'],
-      [sequelize.Sequelize.fn('SUM', 
-        sequelize.Sequelize.literal('stock_quantity * selling_price')
+      [sequelize.fn('COUNT', sequelize.col('id')), 'totalMedicines'], // FIXED: Remove extra Sequelize
+      [sequelize.fn('SUM', sequelize.col('stock_quantity')), 'totalStock'], // FIXED: Remove extra Sequelize
+      [sequelize.fn('SUM', 
+        sequelize.literal('stock_quantity * selling_price')
       ), 'totalValue'],
-      [sequelize.Sequelize.fn('COUNT', 
-        sequelize.Sequelize.literal('CASE WHEN stock_quantity <= min_stock_level THEN 1 END')
+      [sequelize.fn('COUNT', 
+        sequelize.literal('CASE WHEN stock_quantity <= min_stock_level THEN 1 END')
       ), 'lowStockCount'],
-      [sequelize.Sequelize.fn('COUNT', 
-        sequelize.Sequelize.literal(`CASE WHEN expiry_date <= DATE_ADD(CURRENT_DATE, INTERVAL 30 DAY) AND expiry_date >= CURRENT_DATE THEN 1 END`)
+      [sequelize.fn('COUNT', 
+        sequelize.literal(`CASE WHEN expiry_date <= DATE_ADD(CURRENT_DATE, INTERVAL 30 DAY) AND expiry_date >= CURRENT_DATE THEN 1 END`)
       ), 'expiringSoonCount'],
-      [sequelize.Sequelize.fn('COUNT', 
-        sequelize.Sequelize.literal('CASE WHEN expiry_date < CURRENT_DATE THEN 1 END')
+      [sequelize.fn('COUNT', 
+        sequelize.literal('CASE WHEN expiry_date < CURRENT_DATE THEN 1 END')
       ), 'expiredCount']
     ],
     where: { isActive: true },

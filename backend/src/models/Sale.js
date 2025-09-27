@@ -1,4 +1,4 @@
-const { DataTypes } = require('sequelize');
+const { DataTypes, Op } = require('sequelize');
 const { sequelize } = require('../config/database');
 
 const Sale = sequelize.define('Sale', {
@@ -129,7 +129,7 @@ const Sale = sequelize.define('Sale', {
   underscored: true,
   timestamps: true,
   createdAt: 'created_at',
-  updatedAt: false, // Sales don't get updated typically
+  updatedAt: false,
   indexes: [
     {
       unique: true,
@@ -150,23 +150,22 @@ const Sale = sequelize.define('Sale', {
     {
       fields: ['payment_status']
     }
-  ],
-  hooks: {
-    beforeCreate: async (sale) => {
-      // Generate sale number if not provided
-      if (!sale.saleNumber) {
-        const today = new Date();
-        const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
-        const count = await Sale.count({
-          where: {
-            saleDate: {
-              [sequelize.Sequelize.Op.gte]: new Date(today.setHours(0, 0, 0, 0))
-            }
-          }
-        });
-        sale.saleNumber = `SA${dateStr}${String(count + 1).padStart(4, '0')}`;
+  ]
+});
+
+Sale.addHook('beforeCreate', async (sale) => {
+  if (!sale.saleNumber) {
+    const today = new Date();
+    const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
+    
+    const count = await Sale.count({
+      where: {
+        saleDate: {
+          [Op.gte]: new Date(today.setHours(0, 0, 0, 0))
+        }
       }
-    }
+    });
+    sale.saleNumber = `SA${dateStr}${String(count + 1).padStart(4, '0')}`;
   }
 });
 
@@ -205,7 +204,7 @@ Sale.getTodaysSales = async function() {
   const sales = await Sale.findAll({
     where: {
       saleDate: {
-        [sequelize.Sequelize.Op.between]: [startOfDay, endOfDay]
+        [Op.between]: [startOfDay, endOfDay] // FIXED: Use Op.between
       }
     },
     order: [['saleDate', 'DESC']]
@@ -213,14 +212,14 @@ Sale.getTodaysSales = async function() {
 
   const stats = await Sale.findAll({
     attributes: [
-      [sequelize.Sequelize.fn('COUNT', sequelize.Sequelize.col('id')), 'totalSales'],
-      [sequelize.Sequelize.fn('SUM', sequelize.Sequelize.col('total_amount')), 'totalRevenue'],
-      [sequelize.Sequelize.fn('AVG', sequelize.Sequelize.col('total_amount')), 'avgSaleValue'],
-      [sequelize.Sequelize.fn('SUM', sequelize.Sequelize.col('tax_amount')), 'totalTax']
+      [sequelize.fn('COUNT', sequelize.col('id')), 'totalSales'],
+      [sequelize.fn('SUM', sequelize.col('total_amount')), 'totalRevenue'],
+      [sequelize.fn('AVG', sequelize.col('total_amount')), 'avgSaleValue'],
+      [sequelize.fn('SUM', sequelize.col('tax_amount')), 'totalTax']
     ],
     where: {
       saleDate: {
-        [sequelize.Sequelize.Op.between]: [startOfDay, endOfDay]
+        [Op.between]: [startOfDay, endOfDay] // FIXED: Use Op.between
       }
     },
     raw: true
@@ -258,26 +257,26 @@ Sale.getSalesReport = async function(startDate, endDate, groupBy = 'day') {
 
   return await Sale.findAll({
     attributes: [
-      [sequelize.Sequelize.fn('DATE_FORMAT', 
-        sequelize.Sequelize.col('sale_date'), 
+      [sequelize.fn('DATE_FORMAT', 
+        sequelize.col('sale_date'), 
         dateFormat
       ), 'period'],
-      [sequelize.Sequelize.fn('COUNT', sequelize.Sequelize.col('id')), 'totalSales'],
-      [sequelize.Sequelize.fn('SUM', sequelize.Sequelize.col('total_amount')), 'totalRevenue'],
-      [sequelize.Sequelize.fn('AVG', sequelize.Sequelize.col('total_amount')), 'avgSaleValue'],
-      [sequelize.Sequelize.fn('SUM', sequelize.Sequelize.col('tax_amount')), 'totalTax']
+      [sequelize.fn('COUNT', sequelize.col('id')), 'totalSales'],
+      [sequelize.fn('SUM', sequelize.col('total_amount')), 'totalRevenue'],
+      [sequelize.fn('AVG', sequelize.col('total_amount')), 'avgSaleValue'],
+      [sequelize.fn('SUM', sequelize.col('tax_amount')), 'totalTax']
     ],
     where: {
       saleDate: {
-        [sequelize.Sequelize.Op.between]: [startDate, endDate]
+        [Op.between]: [startDate, endDate] // FIXED: Use Op.between
       }
     },
-    group: [sequelize.Sequelize.fn('DATE_FORMAT', 
-      sequelize.Sequelize.col('sale_date'), 
+    group: [sequelize.fn('DATE_FORMAT', 
+      sequelize.col('sale_date'), 
       dateFormat
     )],
-    order: [[sequelize.Sequelize.fn('DATE_FORMAT', 
-      sequelize.Sequelize.col('sale_date'), 
+    order: [[sequelize.fn('DATE_FORMAT', 
+      sequelize.col('sale_date'), 
       dateFormat
     ), 'ASC']],
     raw: true
@@ -288,17 +287,17 @@ Sale.getPaymentMethodStats = async function(startDate, endDate) {
   return await Sale.findAll({
     attributes: [
       'paymentMethod',
-      [sequelize.Sequelize.fn('COUNT', sequelize.Sequelize.col('id')), 'count'],
-      [sequelize.Sequelize.fn('SUM', sequelize.Sequelize.col('total_amount')), 'totalAmount'],
-      [sequelize.Sequelize.fn('AVG', sequelize.Sequelize.col('total_amount')), 'avgAmount']
+      [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+      [sequelize.fn('SUM', sequelize.col('total_amount')), 'totalAmount'],
+      [sequelize.fn('AVG', sequelize.col('total_amount')), 'avgAmount']
     ],
     where: {
       saleDate: {
-        [sequelize.Sequelize.Op.between]: [startDate, endDate]
+        [Op.between]: [startDate, endDate] // FIXED: Use Op.between
       }
     },
     group: ['paymentMethod'],
-    order: [[sequelize.Sequelize.fn('SUM', sequelize.Sequelize.col('total_amount')), 'DESC']],
+    order: [[sequelize.fn('SUM', sequelize.col('total_amount')), 'DESC']],
     raw: true
   });
 };

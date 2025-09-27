@@ -1,3 +1,4 @@
+const { sequelize } = require('../config/database');
 // Import all models first
 const User = require('./User');
 const Medicine = require('./Medicine');
@@ -80,6 +81,7 @@ const defineAssociations = () => {
 defineAssociations();
 
 module.exports = {
+  sequelize,  // This must be exported
   User,
   Medicine,
   Category,

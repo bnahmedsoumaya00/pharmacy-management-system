@@ -54,6 +54,7 @@ class ValidatorFactory {
   static sales() {
     return {
       create: SalesValidator.validateSale(),
+      update: SalesValidator.validateSale(),  // TEMPORARY FIX - use same as create
       refund: SalesValidator.validateRefund(),
       report: SalesValidator.validateSalesReport(),
       filter: SalesValidator.validateSalesFilter()

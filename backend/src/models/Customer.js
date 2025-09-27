@@ -1,4 +1,4 @@
-const { DataTypes } = require('sequelize');
+const { DataTypes, Op } = require('sequelize'); // ADD Op IMPORT HERE
 const { sequelize } = require('../config/database');
 
 const Customer = sequelize.define('Customer', {
@@ -182,7 +182,7 @@ const Customer = sequelize.define('Customer', {
       fields: ['customer_code'],
       where: {
         customer_code: {
-          [sequelize.Sequelize.Op.ne]: null
+          [Op.ne]: null // FIXED: Use Op.ne instead of sequelize.Sequelize.Op.ne
         }
       }
     },
@@ -254,36 +254,36 @@ Customer.prototype.updatePurchaseTotal = async function(amount) {
   await this.save({ fields: ['totalPurchases', 'loyaltyPoints'] });
 };
 
-// Static methods
+// FIXED Static methods
 Customer.searchByName = async function(searchTerm) {
   return await Customer.findAll({
     where: {
-      [sequelize.Sequelize.Op.and]: [
+      [Op.and]: [ // FIXED: Use Op.and
         {
-          [sequelize.Sequelize.Op.or]: [
+          [Op.or]: [ // FIXED: Use Op.or
             {
               firstName: {
-                [sequelize.Sequelize.Op.like]: `%${searchTerm}%`
+                [Op.like]: `%${searchTerm}%` // FIXED: Use Op.like
               }
             },
             {
               lastName: {
-                [sequelize.Sequelize.Op.like]: `%${searchTerm}%`
+                [Op.like]: `%${searchTerm}%` // FIXED: Use Op.like
               }
             },
             {
               customerCode: {
-                [sequelize.Sequelize.Op.like]: `%${searchTerm}%`
+                [Op.like]: `%${searchTerm}%` // FIXED: Use Op.like
               }
             },
             {
               phone: {
-                [sequelize.Sequelize.Op.like]: `%${searchTerm}%`
+                [Op.like]: `%${searchTerm}%` // FIXED: Use Op.like
               }
             },
             {
               email: {
-                [sequelize.Sequelize.Op.like]: `%${searchTerm}%`
+                [Op.like]: `%${searchTerm}%` // FIXED: Use Op.like
               }
             }
           ]
@@ -306,12 +306,12 @@ Customer.getTopCustomers = async function(limit = 10) {
 Customer.getCustomerStats = async function() {
   const stats = await Customer.findAll({
     attributes: [
-      [sequelize.Sequelize.fn('COUNT', sequelize.Sequelize.col('id')), 'totalCustomers'],
-      [sequelize.Sequelize.fn('SUM', sequelize.Sequelize.col('total_purchases')), 'totalRevenue'],
-      [sequelize.Sequelize.fn('AVG', sequelize.Sequelize.col('total_purchases')), 'avgPurchasePerCustomer'],
-      [sequelize.Sequelize.fn('SUM', sequelize.Sequelize.col('loyalty_points')), 'totalLoyaltyPoints'],
-      [sequelize.Sequelize.fn('COUNT', 
-        sequelize.Sequelize.literal('CASE WHEN total_purchases > 0 THEN 1 END')
+      [sequelize.fn('COUNT', sequelize.col('id')), 'totalCustomers'], // FIXED: Remove extra Sequelize
+      [sequelize.fn('SUM', sequelize.col('total_purchases')), 'totalRevenue'], // FIXED: Remove extra Sequelize
+      [sequelize.fn('AVG', sequelize.col('total_purchases')), 'avgPurchasePerCustomer'], // FIXED: Remove extra Sequelize
+      [sequelize.fn('SUM', sequelize.col('loyalty_points')), 'totalLoyaltyPoints'], // FIXED: Remove extra Sequelize
+      [sequelize.fn('COUNT', 
+        sequelize.literal('CASE WHEN total_purchases > 0 THEN 1 END')
       ), 'activeCustomers']
     ],
     where: { isActive: true },
@@ -334,19 +334,19 @@ Customer.getBirthdayCustomers = async function(days = 7) {
 
   return await Customer.findAll({
     where: {
-      [sequelize.Sequelize.Op.and]: [
+      [Op.and]: [ // FIXED: Use Op.and
         {
           dateOfBirth: {
-            [sequelize.Sequelize.Op.ne]: null
+            [Op.ne]: null // FIXED: Use Op.ne
           }
         },
-        sequelize.Sequelize.where(
-          sequelize.Sequelize.fn('DATE_FORMAT', 
-            sequelize.Sequelize.col('date_of_birth'), 
+        sequelize.where( // FIXED: Remove extra Sequelize
+          sequelize.fn('DATE_FORMAT', 
+            sequelize.col('date_of_birth'), 
             '%m-%d'
           ),
           {
-            [sequelize.Sequelize.Op.between]: [
+            [Op.between]: [ // FIXED: Use Op.between
               startDate.toISOString().slice(5, 10),
               endDate.toISOString().slice(5, 10)
             ]
@@ -356,8 +356,8 @@ Customer.getBirthdayCustomers = async function(days = 7) {
       ]
     },
     order: [
-      [sequelize.Sequelize.fn('DATE_FORMAT', 
-        sequelize.Sequelize.col('date_of_birth'), 
+      [sequelize.fn('DATE_FORMAT', // FIXED: Remove extra Sequelize
+        sequelize.col('date_of_birth'), 
         '%m-%d'
       ), 'ASC']
     ]

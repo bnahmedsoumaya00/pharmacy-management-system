@@ -16,10 +16,13 @@ class SalesController {
     this.createSale = this.createSale.bind(this);
     this.getAllSales = this.getAllSales.bind(this);
     this.getSaleById = this.getSaleById.bind(this);
-    this.getTodaysSales = this.getTodaysSales.bind(this);
+    this.getTodaySales = this.getTodaySales.bind(this);
+    this.getSalesStats = this.getSalesStats.bind(this);
     this.getSalesReport = this.getSalesReport.bind(this);
-    this.processRefund = this.processRefund.bind(this);
-    this.getCustomerHistory = this.getCustomerHistory.bind(this);
+    this.getSaleReceipt = this.getSaleReceipt.bind(this);
+    this.processSaleRefund = this.processSaleRefund.bind(this);
+    this.updateSale = this.updateSale.bind(this);
+    this.deleteSale = this.deleteSale.bind(this);
   }
 
   /**
@@ -111,7 +114,7 @@ class SalesController {
    * Get today's sales dashboard
    * GET /api/sales/today
    */
-  async getTodaysSales(req, res) {
+  async getTodaySales(req, res) {
     try {
       const todayData = await this.salesService.getTodaysDashboard();
 
@@ -119,6 +122,26 @@ class SalesController {
         success: true,
         message: 'Today\'s sales retrieved successfully',
         data: todayData
+      });
+
+    } catch (error) {
+      this._handleError(res, error);
+    }
+  }
+
+  /**
+   * Get sales statistics
+   * GET /api/sales/stats
+   */
+  async getSalesStats(req, res) {
+    try {
+      const { period = 'month' } = req.query;
+      const stats = await this.salesService.getSalesStatistics(period);
+
+      res.json({
+        success: true,
+        message: 'Sales statistics retrieved successfully',
+        data: stats
       });
 
     } catch (error) {
@@ -176,10 +199,39 @@ class SalesController {
   }
 
   /**
+   * Get sale receipt
+   * GET /api/sales/:id/receipt
+   */
+  async getSaleReceipt(req, res) {
+    try {
+      const saleId = parseInt(req.params.id);
+      
+      if (isNaN(saleId)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid sale ID',
+          code: 'INVALID_SALE_ID'
+        });
+      }
+
+      const receipt = await this.salesService.generateReceipt(saleId);
+
+      res.json({
+        success: true,
+        message: 'Receipt generated successfully',
+        data: receipt
+      });
+
+    } catch (error) {
+      this._handleError(res, error);
+    }
+  }
+
+  /**
    * Process sale refund
    * POST /api/sales/:id/refund
    */
-  async processRefund(req, res) {
+  async processSaleRefund(req, res) {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
@@ -215,32 +267,65 @@ class SalesController {
   }
 
   /**
-   * Get customer purchase history
-   * GET /api/customers/:id/sales-history
+   * Update sale
+   * PUT /api/sales/:id
    */
-  async getCustomerHistory(req, res) {
+  async updateSale(req, res) {
     try {
-      const customerId = parseInt(req.params.id);
-      const { page = 1, limit = 10 } = req.query;
-
-      if (isNaN(customerId)) {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
         return res.status(400).json({
           success: false,
-          message: 'Invalid customer ID',
-          code: 'INVALID_CUSTOMER_ID'
+          message: 'Validation failed',
+          errors: errors.array()
         });
       }
 
-      const history = await this.salesService.getCustomerHistory(
-        customerId, 
-        parseInt(page), 
-        parseInt(limit)
-      );
+      const saleId = parseInt(req.params.id);
+      const updateData = req.body;
+
+      if (isNaN(saleId)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid sale ID',
+          code: 'INVALID_SALE_ID'
+        });
+      }
+
+      const updatedSale = await this.salesService.updateSale(saleId, updateData);
 
       res.json({
         success: true,
-        message: 'Customer purchase history retrieved successfully',
-        data: history
+        message: 'Sale updated successfully',
+        data: { sale: updatedSale }
+      });
+
+    } catch (error) {
+      this._handleError(res, error);
+    }
+  }
+
+  /**
+   * Delete sale
+   * DELETE /api/sales/:id
+   */
+  async deleteSale(req, res) {
+    try {
+      const saleId = parseInt(req.params.id);
+
+      if (isNaN(saleId)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid sale ID',
+          code: 'INVALID_SALE_ID'
+        });
+      }
+
+      await this.salesService.deleteSale(saleId);
+
+      res.json({
+        success: true,
+        message: 'Sale deleted successfully'
       });
 
     } catch (error) {
@@ -279,88 +364,60 @@ class SalesController {
       ? sortOrder.toUpperCase() 
       : 'DESC';
 
-    // Validate payment method
-    const validPaymentMethods = ['cash', 'card', 'insurance', 'credit'];
-    const validatedPaymentMethod = validPaymentMethods.includes(paymentMethod) 
-      ? paymentMethod 
-      : undefined;
-
-    // Validate payment status
-    const validPaymentStatuses = ['paid', 'pending', 'partial', 'refunded'];
-    const validatedPaymentStatus = validPaymentStatuses.includes(paymentStatus) 
-      ? paymentStatus 
-      : undefined;
-
     return {
       page: validatedPage,
       limit: validatedLimit,
-      startDate: startDate ? new Date(startDate) : undefined,
-      endDate: endDate ? new Date(endDate) : undefined,
-      customerId: customerId ? parseInt(customerId) : undefined,
-      paymentMethod: validatedPaymentMethod,
-      paymentStatus: validatedPaymentStatus,
-      userId: userId ? parseInt(userId) : undefined,
-      minAmount: minAmount ? parseFloat(minAmount) : undefined,
-      maxAmount: maxAmount ? parseFloat(maxAmount) : undefined,
+      startDate,
+      endDate,
+      customerId: customerId ? parseInt(customerId) : null,
+      paymentMethod,
+      paymentStatus,
+      userId: userId ? parseInt(userId) : null,
+      minAmount: minAmount ? parseFloat(minAmount) : null,
+      maxAmount: maxAmount ? parseFloat(maxAmount) : null,
       sortBy,
       sortOrder: validatedSortOrder
     };
   }
 
   /**
-   * Centralized error handling with proper HTTP status codes
+   * Handle errors and send appropriate response
    * @private
    */
   _handleError(res, error) {
     console.error('Sales Controller Error:', error);
 
-    // Handle custom business exceptions
-    if (error instanceof SalesValidationError || error instanceof InsufficientStockError) {
-      return res.status(error.getStatusCode()).json(error.toJSON());
-    }
-
-    // Handle Sequelize validation errors
-    if (error.name === 'SequelizeValidationError') {
-      const validationErrors = error.errors.map(err => ({
-        field: err.path,
-        message: err.message,
-        value: err.value
-      }));
-
+    if (error instanceof SalesValidationError) {
       return res.status(400).json({
         success: false,
-        message: 'Database validation failed',
-        errors: validationErrors
+        message: error.message,
+        code: error.code
       });
     }
 
-    // Handle foreign key constraint errors
-    if (error.name === 'SequelizeForeignKeyConstraintError') {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid reference to related entity',
-        code: 'FOREIGN_KEY_CONSTRAINT'
-      });
-    }
-
-    // Handle unique constraint errors
-    if (error.name === 'SequelizeUniqueConstraintError') {
+    if (error instanceof InsufficientStockError) {
       return res.status(409).json({
         success: false,
-        message: 'Duplicate entry detected',
-        code: 'UNIQUE_CONSTRAINT'
+        message: error.message,
+        code: 'INSUFFICIENT_STOCK',
+        details: {
+          medicineId: error.medicineId,
+          availableStock: error.availableStock,
+          requestedQuantity: error.requestedQuantity
+        }
       });
     }
 
-    // Generic server error
+    // Generic error response
     res.status(500).json({
       success: false,
       message: 'Internal server error',
-      error: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong',
-      timestamp: new Date().toISOString()
+      ...(process.env.NODE_ENV === 'development' && { 
+        error: error.message,
+        stack: error.stack 
+      })
     });
   }
 }
 
-// Export instance to maintain singleton pattern
 module.exports = new SalesController();

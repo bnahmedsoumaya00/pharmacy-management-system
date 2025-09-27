@@ -1,4 +1,4 @@
-const { DataTypes } = require('sequelize');
+const { DataTypes, Op } = require('sequelize'); // ADD Op HERE
 const { sequelize } = require('../config/database');
 
 const Supplier = sequelize.define('Supplier', {
@@ -212,27 +212,27 @@ Supplier.findActiveSuppliers = async function() {
 Supplier.searchSuppliers = async function(searchTerm) {
   return await Supplier.findAll({
     where: {
-      [sequelize.Sequelize.Op.and]: [
+      [Op.and]: [ // FIXED: Use Op.and
         {
-          [sequelize.Sequelize.Op.or]: [
+          [Op.or]: [ // FIXED: Use Op.or
             {
               name: {
-                [sequelize.Sequelize.Op.like]: `%${searchTerm}%`
+                [Op.like]: `%${searchTerm}%` // FIXED: Use Op.like
               }
             },
             {
               contactPerson: {
-                [sequelize.Sequelize.Op.like]: `%${searchTerm}%`
+                [Op.like]: `%${searchTerm}%` // FIXED: Use Op.like
               }
             },
             {
               email: {
-                [sequelize.Sequelize.Op.like]: `%${searchTerm}%`
+                [Op.like]: `%${searchTerm}%` // FIXED: Use Op.like
               }
             },
             {
               city: {
-                [sequelize.Sequelize.Op.like]: `%${searchTerm}%`
+                [Op.like]: `%${searchTerm}%` // FIXED: Use Op.like
               }
             }
           ]
@@ -249,7 +249,7 @@ Supplier.getTopSuppliers = async function(limit = 10) {
     where: { 
       isActive: true,
       rating: {
-        [sequelize.Sequelize.Op.ne]: null
+        [Op.ne]: null // FIXED: Use Op.ne
       }
     },
     order: [['rating', 'DESC']],
@@ -260,15 +260,15 @@ Supplier.getTopSuppliers = async function(limit = 10) {
 Supplier.getSupplierStats = async function() {
   const stats = await Supplier.findAll({
     attributes: [
-      [sequelize.Sequelize.fn('COUNT', sequelize.Sequelize.col('id')), 'totalSuppliers'],
-      [sequelize.Sequelize.fn('COUNT', 
-        sequelize.Sequelize.literal('CASE WHEN is_active = 1 THEN 1 END')
+      [sequelize.fn('COUNT', sequelize.col('id')), 'totalSuppliers'], // FIXED: Remove extra Sequelize
+      [sequelize.fn('COUNT', 
+        sequelize.literal('CASE WHEN is_active = 1 THEN 1 END')
       ), 'activeSuppliers'],
-      [sequelize.Sequelize.fn('AVG', sequelize.Sequelize.col('rating')), 'avgRating'],
-      [sequelize.Sequelize.fn('COUNT', 
-        sequelize.Sequelize.literal('CASE WHEN rating >= 4 THEN 1 END')
+      [sequelize.fn('AVG', sequelize.col('rating')), 'avgRating'], // FIXED: Remove extra Sequelize
+      [sequelize.fn('COUNT', 
+        sequelize.literal('CASE WHEN rating >= 4 THEN 1 END')
       ), 'topRatedSuppliers'],
-      [sequelize.Sequelize.fn('SUM', sequelize.Sequelize.col('credit_limit')), 'totalCreditLimit']
+      [sequelize.fn('SUM', sequelize.col('credit_limit')), 'totalCreditLimit'] // FIXED: Remove extra Sequelize
     ],
     raw: true
   });
@@ -286,11 +286,11 @@ Supplier.getSuppliersByCountry = async function() {
   return await Supplier.findAll({
     attributes: [
       'country',
-      [sequelize.Sequelize.fn('COUNT', sequelize.Sequelize.col('id')), 'supplierCount']
+      [sequelize.fn('COUNT', sequelize.col('id')), 'supplierCount'] // FIXED: Remove extra Sequelize
     ],
     where: { isActive: true },
     group: ['country'],
-    order: [[sequelize.Sequelize.fn('COUNT', sequelize.Sequelize.col('id')), 'DESC']],
+    order: [[sequelize.fn('COUNT', sequelize.col('id')), 'DESC']], // FIXED: Remove extra Sequelize
     raw: true
   });
 };
