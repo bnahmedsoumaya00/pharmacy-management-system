@@ -8,7 +8,8 @@ const {
   updateCustomer,
   deleteCustomer,
   getCustomerHistory,
-  getCustomerStats
+  getCustomerStats,
+  updateLoyaltyPoints
 } = require('../controllers/customerController');
 
 const { validateCustomer } = require('../middleware/validation');
@@ -23,7 +24,10 @@ router.use(authenticateToken);
 router.get('/', getAllCustomers);                        // GET /api/customers
 router.get('/stats', getCustomerStats);                  // GET /api/customers/stats
 router.get('/:id', getCustomerById);                     // GET /api/customers/:id
-router.get('/:id/history', getCustomerHistory);         // GET /api/customers/:id/history
+router.get('/:id/history', 
+  authenticateToken, 
+  getCustomerHistory
+);         // GET /api/customers/:id/history
 
 // Pharmacist and Admin routes (can create and update customers)
 router.post('/', 
@@ -37,6 +41,11 @@ router.put('/:id',
   validateCustomer, 
   updateCustomer
 );                                                       // PUT /api/customers/:id
+
+router.put('/:id/loyalty', 
+  authorizeRoles('admin', 'pharmacist', 'cashier'), 
+  updateLoyaltyPoints
+);                                                       // PUT /api/customers/:id/loyalty
 
 // Admin only routes
 router.delete('/:id', 

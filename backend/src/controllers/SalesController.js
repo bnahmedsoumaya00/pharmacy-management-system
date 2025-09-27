@@ -2,6 +2,9 @@ const SalesService = require('../services/SalesService');
 const { validationResult } = require('express-validator');
 const SalesValidationError = require('../exceptions/SalesValidationError');
 const InsufficientStockError = require('../exceptions/InsufficientStockError');
+const sequelize = require('sequelize');
+const { Sale, Medicine, SaleItem, User, Customer, Category } = require('../models');
+const { Op } = require('sequelize');
 
 /**
  * Sales Controller - HTTP request handling for sales operations
@@ -23,6 +26,8 @@ class SalesController {
     this.processSaleRefund = this.processSaleRefund.bind(this);
     this.updateSale = this.updateSale.bind(this);
     this.deleteSale = this.deleteSale.bind(this);
+    this.refundSale = this.refundSale.bind(this);
+    this.getReceipt = this.getReceipt.bind(this);
   }
 
   /**
@@ -135,17 +140,83 @@ class SalesController {
    */
   async getSalesStats(req, res) {
     try {
-      const { period = 'month' } = req.query;
-      const stats = await this.salesService.getSalesStatistics(period);
+      const { startDate, endDate } = req.query;
+      const { Sale, sequelize } = require('../models');
+      const { Op } = require('sequelize');
+      
+      let whereClause = {};
+      if (startDate && endDate) {
+        whereClause.saleDate = {
+          [Op.between]: [new Date(startDate), new Date(endDate)]
+        };
+      }
+
+      // Get basic stats with safe error handling
+      let totalSales = 0;
+      let totalRevenue = 0;
+      let averageSale = 0;
+      let highestSale = 0;
+      let dailySummary = [];
+
+      try {
+        totalSales = await Sale.count({ where: whereClause });
+      } catch (error) {
+        console.log('Error counting sales:', error.message);
+      }
+
+      try {
+        const totalRevenueResult = await Sale.sum('finalAmount', { where: whereClause });
+        totalRevenue = totalRevenueResult || 0;
+        averageSale = totalSales > 0 ? (totalRevenue / totalSales) : 0;
+      } catch (error) {
+        console.log('Error calculating revenue:', error.message);
+      }
+
+      try {
+        const highestSaleResult = await Sale.max('finalAmount', { where: whereClause });
+        highestSale = highestSaleResult || 0;
+      } catch (error) {
+        console.log('Error getting highest sale:', error.message);
+      }
+
+      try {
+        dailySummary = await Sale.findAll({
+          where: whereClause,
+          attributes: [
+            [sequelize.fn('DATE', sequelize.col('saleDate')), 'date'],
+            [sequelize.fn('COUNT', sequelize.col('id')), 'salesCount'],
+            [sequelize.fn('SUM', sequelize.col('finalAmount')), 'dailyRevenue']
+          ],
+          group: [sequelize.fn('DATE', sequelize.col('saleDate'))],
+          order: [[sequelize.fn('DATE', sequelize.col('saleDate')), 'DESC']],
+          raw: true,
+          limit: 10
+        });
+      } catch (error) {
+        console.log('Error getting daily summary:', error.message);
+        dailySummary = [];
+      }
 
       res.json({
         success: true,
-        message: 'Sales statistics retrieved successfully',
-        data: stats
+        data: {
+          overview: {
+            totalSales,
+            totalRevenue: parseFloat(totalRevenue).toFixed(2),
+            averageSale: parseFloat(averageSale).toFixed(2),
+            highestSale: parseFloat(highestSale).toFixed(2)
+          },
+          dailySummary: dailySummary || []
+        }
       });
 
     } catch (error) {
-      this._handleError(res, error);
+      console.error('Sales stats error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error fetching sales statistics',
+        error: error.message
+      });
     }
   }
 
@@ -330,6 +401,167 @@ class SalesController {
 
     } catch (error) {
       this._handleError(res, error);
+    }
+  }
+
+  /**
+   * Refund sale
+   * POST /api/sales/:id/refund
+   */
+  async refundSale(req, res) {
+    try {
+      const { id } = req.params;
+      const { reason, refundAmount } = req.body;
+
+      // Find sale with items
+      const sale = await Sale.findByPk(id, {
+        include: [{
+          model: SaleItem,
+          as: 'items',
+          include: [{
+            model: Medicine,
+            as: 'medicine'
+          }]
+        }]
+      });
+
+      if (!sale) {
+        return res.status(404).json({
+          success: false,
+          message: 'Sale not found'
+        });
+      }
+
+      if (sale.status === 'refunded') {
+        return res.status(400).json({
+          success: false,
+          message: 'Sale already refunded'
+        });
+      }
+
+      // Calculate refund amount if not provided
+      const calculatedRefund = refundAmount || sale.finalAmount;
+
+      // Restore inventory
+      for (const item of sale.items) {
+        await Medicine.increment('stockQuantity', {
+          by: item.quantity,
+          where: { id: item.medicineId }
+        });
+      }
+
+      // Update sale status
+      await sale.update({
+        status: 'refunded',
+        refundAmount: calculatedRefund,
+        refundReason: reason,
+        refundDate: new Date()
+      });
+
+      res.json({
+        success: true,
+        message: 'Sale refunded successfully',
+        data: {
+          saleId: sale.id,
+          refundAmount: calculatedRefund,
+          reason: reason,
+          refundDate: new Date()
+        }
+      });
+
+    } catch (error) {
+      console.error('Refund error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error processing refund',
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * Get receipt
+   * GET /api/sales/:id/receipt
+   */
+  async getReceipt(req, res) {
+    try {
+      const { id } = req.params;
+
+      const sale = await Sale.findByPk(id, {
+        include: [
+          {
+            model: Customer,
+            as: 'customer'
+          },
+          {
+            model: User,
+            as: 'user'
+          },
+          {
+            model: SaleItem,
+            as: 'items',
+            include: [{
+              model: Medicine,
+              as: 'medicine',
+              include: [{
+                model: Category,
+                as: 'category'
+              }]
+            }]
+          }
+        ]
+      });
+
+      if (!sale) {
+        return res.status(404).json({
+          success: false,
+          message: 'Sale not found'
+        });
+      }
+
+      // Generate receipt data
+      const receipt = {
+        receiptNumber: `RCP-${sale.id.toString().padStart(6, '0')}`,
+        saleDate: sale.saleDate,
+        customer: sale.customer ? {
+          name: `${sale.customer.firstName} ${sale.customer.lastName}`,
+          phone: sale.customer.phone,
+          loyaltyPoints: sale.customer.loyaltyPoints
+        } : { name: 'Walk-in Customer' },
+        cashier: sale.user.username,
+        items: sale.items.map(item => ({
+          name: item.medicine.name,
+          category: item.medicine.category.name,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          discount: item.discount || 0,
+          totalPrice: item.totalPrice
+        })),
+        summary: {
+          subtotal: sale.totalAmount,
+          tax: sale.taxAmount || 0,
+          discount: sale.items.reduce((sum, item) => sum + (item.discount || 0), 0),
+          final: sale.finalAmount
+        },
+        payment: {
+          method: sale.paymentMethod,
+          received: sale.amountReceived || sale.finalAmount,
+          change: (sale.amountReceived || sale.finalAmount) - sale.finalAmount
+        }
+      };
+
+      res.json({
+        success: true,
+        data: receipt
+      });
+
+    } catch (error) {
+      console.error('Receipt generation error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error generating receipt',
+        error: error.message
+      });
     }
   }
 

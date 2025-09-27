@@ -194,23 +194,49 @@ class CustomerController {
   getCustomerHistory = async (req, res) => {
     try {
       const { id } = req.params;
-      const customer = await this.customerService.getCustomerWithHistory(id);
+      const { Sale, SaleItem, Medicine } = require('../models');
+      
+      const sales = await Sale.findAll({
+        where: { customerId: id },
+        include: [
+          {
+            model: SaleItem,
+            as: 'items',
+            include: [{ model: Medicine, as: 'medicine' }]
+          }
+        ],
+        order: [['saleDate', 'DESC']]
+      });
 
-      if (!customer) {
-        return res.status(404).json({
-          success: false,
-          message: 'Customer not found'
-        });
-      }
+      const summary = {
+        totalPurchases: sales.length,
+        totalSpent: sales.reduce((sum, sale) => sum + parseFloat(sale.finalAmount || 0), 0),
+        lastPurchase: sales.length > 0 ? sales[0].saleDate : null
+      };
 
       res.json({
         success: true,
-        data: customer
+        data: {
+          summary,
+          purchases: sales.map(sale => ({
+            id: sale.id,
+            date: sale.saleDate,
+            itemsCount: sale.items?.length || 0,
+            amount: sale.finalAmount,
+            items: sale.items?.map(item => ({
+              medicine: item.medicine?.name || 'Unknown',
+              quantity: item.quantity,
+              price: item.totalPrice
+            })) || []
+          }))
+        }
       });
+
     } catch (error) {
+      console.error('Customer history error:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to fetch customer history',
+        message: 'Error fetching customer history',
         error: error.message
       });
     }
@@ -287,26 +313,47 @@ class CustomerController {
   updateLoyaltyPoints = async (req, res) => {
     try {
       const { id } = req.params;
-      const { points } = req.body;
+      const { points, operation } = req.body; // operation: 'add' or 'redeem'
 
-      if (typeof points !== 'number') {
-        return res.status(400).json({
+      const customer = await Customer.findByPk(id);
+      if (!customer) {
+        return res.status(404).json({
           success: false,
-          message: 'Points must be a number'
+          message: 'Customer not found'
         });
       }
 
-      const customer = await this.customerService.updateLoyaltyPoints(id, points);
+      let newPoints = customer.loyaltyPoints;
+      
+      if (operation === 'add') {
+        newPoints += parseInt(points);
+      } else if (operation === 'redeem') {
+        if (customer.loyaltyPoints < parseInt(points)) {
+          return res.status(400).json({
+            success: false,
+            message: 'Insufficient loyalty points'
+          });
+        }
+        newPoints -= parseInt(points);
+      }
+
+      await customer.update({ loyaltyPoints: newPoints });
 
       res.json({
         success: true,
-        message: 'Loyalty points updated successfully',
-        data: customer
+        message: `Loyalty points ${operation}ed successfully`,
+        data: {
+          previousPoints: customer.loyaltyPoints,
+          adjustedPoints: parseInt(points),
+          newPoints: newPoints
+        }
       });
+
     } catch (error) {
+      console.error('Loyalty points error:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to update loyalty points',
+        message: 'Error updating loyalty points',
         error: error.message
       });
     }

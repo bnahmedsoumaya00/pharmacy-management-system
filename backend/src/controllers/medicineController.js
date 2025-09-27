@@ -243,36 +243,58 @@ class MedicineController {
   // Adjust stock
   adjustStock = async (req, res) => {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
+      const { id } = req.params;
+      const { adjustment, reason, notes } = req.body;
+
+      // Validate input
+      if (!adjustment || adjustment === 0) {
         return res.status(400).json({
           success: false,
-          message: 'Validation failed',
-          errors: errors.array()
+          message: 'Adjustment amount is required and cannot be zero'
         });
       }
 
-      const { id } = req.params;
-      const { quantity, reason } = req.body;
+      // Find medicine using your existing model structure
+      const { Medicine } = require('../models');
+      const medicine = await Medicine.findByPk(id);
+      
+      if (!medicine) {
+        return res.status(404).json({
+          success: false,
+          message: 'Medicine not found'
+        });
+      }
 
-      const medicine = await this.medicineService.adjustStock(id, quantity, reason);
+      // Calculate new stock
+      const newStock = medicine.stockQuantity + parseInt(adjustment);
+      
+      if (newStock < 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Adjustment would result in negative stock'
+        });
+      }
+
+      // Update stock
+      await medicine.update({ stockQuantity: newStock });
 
       res.json({
         success: true,
         message: 'Stock adjusted successfully',
-        data: medicine
+        data: {
+          medicine: medicine.name,
+          previousStock: medicine.stockQuantity - parseInt(adjustment),
+          adjustment: parseInt(adjustment),
+          newStock: newStock,
+          reason: reason || 'Manual adjustment'
+        }
       });
-    } catch (error) {
-      if (error.message.includes('Insufficient stock')) {
-        return res.status(400).json({
-          success: false,
-          message: error.message
-        });
-      }
 
+    } catch (error) {
+      console.error('Stock adjustment error:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to adjust stock',
+        message: 'Error adjusting stock',
         error: error.message
       });
     }

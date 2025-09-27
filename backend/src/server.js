@@ -110,6 +110,8 @@ app.use('/api/customers', customerRoutes);
 app.use('/api/sales', salesRoutes);
 app.use('/api/categories', categoryRoutes);       // ✅ Working
 app.use('/api/suppliers', supplierRoutes);       // 🚀 ADD THIS LINE
+app.use('/api/dashboard', require('./routes/dashboardRoutes'));
+app.use('/api/reports', require('./routes/reportsRoutes'));
 
 // Global error handler
 app.use((error, req, res, next) => {

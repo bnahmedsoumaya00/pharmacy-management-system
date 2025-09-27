@@ -52,6 +52,13 @@ router.post('/:id/adjust-stock',
   medicineController.adjustStock
 );                                                                      // POST /api/medicines/:id/adjust-stock
 
+// Add this route
+router.put('/:id/adjust-stock', 
+  authenticateToken, 
+  authorizeRoles('admin', 'pharmacist'), 
+  medicineController.adjustStock
+);
+
 // Admin only routes
 router.delete('/:id', 
   authorizeRoles('admin'),

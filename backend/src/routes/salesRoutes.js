@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const SalesController = require('../controllers/SalesController');
+const SalesController = require('../controllers/salesController');
 const { ValidatorFactory } = require('../middleware/validation');
 const { authenticateToken, authorizeRoles } = require('../middleware/auth');
 
