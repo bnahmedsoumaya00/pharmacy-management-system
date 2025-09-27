@@ -44,4 +44,6 @@ router.put('/:id/status',
 router.delete('/:id',
   authorizeRoles('admin'),
   supplierController.deleteSupplier
-);
+);                                                                      // DELETE /api/suppliers/:id
+
+module.exports = router;
